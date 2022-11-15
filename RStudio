@@ -1,1 +1,662 @@
 
+# install.packages(c("tidyverse",
+#                    "glue",
+#                    "sqldf",
+#                    "jsonlite",
+#                    "RSQLite",
+#                    "rvest"))
+
+library(tidyverse)
+library(glue)
+
+my_name <- "Toy"
+my_fav_food <- "Hamburger"
+
+text <- glue("Hello my name is {my_name}, my favorite food is {my_fav_food}!")
+
+# data transformation 101
+# package dplyr
+# select, filter, mutate, arrange, summarise
+
+head(mtcars)
+tail(mtcars)
+glimpse(mtcars)
+
+## PIPE operator %>%
+head(mtcars)
+
+mtcars %>% 
+  head()
+
+mtcars %>%
+  summary()
+
+## prepare dataframe
+df <- mtcars %>% 
+  rownames_to_column() %>%
+  tibble()
+
+## select/ rename
+df %>%
+  select(mpg, hp, wt, am)
+
+df %>%
+  select(1:3, 5, am)
+
+df %>%
+  select(milePerGallon = mpg, 
+         horsePower = hp, 
+         weight = wt)
+
+df %>%
+  select(am, hp, wt) %>%
+  rename(horsePower = hp)
+
+df <- df %>%
+  rename(model = rowname)
+
+df %>%
+  select(starts_with("a"), 1:3)
+
+df %>%
+  select(ends_with("p"))
+
+df %>%
+  select(contains("a"))
+
+## filter rows
+## WHERE clause SQL
+result <- df %>%
+  select(model, mpg, wt, hp, am) %>%
+  filter(mpg > 30)
+
+write_csv(result, "result.csv")
+
+## filter using AND
+df %>%
+  select(model, mpg, wt, hp, am) %>%
+  filter(mpg < 30 & hp > 150)
+
+## filter using OR
+df %>%
+  select(model, mpg, wt, hp, am) %>%
+  filter(mpg < 30 | hp > 150)
+
+## between
+df %>%
+  select(model, mpg, wt, hp, am) %>%
+  filter(between(mpg, 20, 30))
+
+## in operator
+## %in%
+df %>%
+  distinct(gear)
+
+df %>%
+  select(model, gear) %>%
+  filter(gear %in% c(3,5))
+
+## filter model names
+df %>%
+  filter(grepl("^M", model)) %>%
+  select(model, mpg, hp, wt)
+
+## mutate
+df_trasformed <- df %>%
+  select(model, mpg, hp) %>%
+  mutate(hp_double = hp*2,
+         hp_square = hp**2,
+         hp_log = log(hp),
+         name = "R Language")
+
+## if-else column
+df <- df %>%
+  mutate(am = factor(if_else(am == 0, "Auto", "Manual")))
+
+df <- df %>%
+  mutate(vs = factor(if_else(vs == 0, "V-Shaped", "Straight")))
+
+## case-when dplyr
+x <- 1:3
+print(x)
+case_when(
+  x==1 ~ "low", 
+  x==2 ~ "medium", 
+  x==3 ~ "high"
+)
+
+df_mpg <- df %>%
+  select(model, mpg) %>%
+  mutate(mpg_group = case_when(
+    mpg <= 15 ~ "low",
+    mpg <= 25 ~ "medium",
+    mpg > 25 ~ "high",
+    TRUE ~ "other" ## ELSE
+  ))
+
+## BREAK 10 minute: 10:40am
+
+## filter NA (missing values)
+
+x <- c(10, 15, 20, NA , 100)
+
+# manual assign NA 
+df[5, "disp"] <- NA # 360
+df[6, 5] <- NA # 105
+
+# write our own function
+check_na <- function(col) {
+  sum(is.na(col))
+}
+
+apply(df, MARGIN=2, check_na)
+
+## anonymous function in R
+apply(df, MARGIN=2, function(col) sum(is.na(col)))
+
+## tidyr::replace_na()
+## replace missing values
+## mean imputation
+avg_disp <- mean(df$disp, na.rm=T)
+
+df %>%
+  mutate(disp = replace_na(disp, avg_disp),
+         hp = replace_na(hp, median(hp, na.rm=T)))
+
+## built-in dataframe msleep
+apply(msleep, MARGIN=2, function(col) sum(is.na(col)))
+
+msleep %>%
+  select(name, genus, vore) %>%
+  filter(is.na(vore))
+
+library(sqldf)
+sqldf("SELECT name, genus, vore FROM msleep
+       WHERE vore IS NOT NULL LIMIT 10")
+
+## check each row in dataframe 
+nrow(msleep) - sum(complete.cases(msleep))
+
+## drop every rows with missing value NA
+msleep_clean <- drop_na(msleep)
+
+##########################################
+## dplyr:: arrange
+
+df %>%
+  select( mpg, hp, wt, am) %>%
+  arrange(am, desc(mpg)) %>%
+  print(n=32)
+
+## dplyr:: summarise summarize
+## SQL:: aggregate functions
+result2 <- df %>%
+  group_by(am, vs) %>%
+  summarise(avg_mpg = mean(mpg),
+            median_mpg = median(mpg),
+            sum_mpg = sum(mpg),
+            sd_mpg = sd(mpg),
+            n = n())
+
+write_csv(result2, "summary_stat.csv")
+
+
+
+
+
+
+
+
+
+
+
+
+## Logistic Regression Example
+## Binary classification
+happiness <- c(10, 8, 9, 7, 8, 5, 9, 6, 8, 7, 1, 1, 3, 1, 4,
+            5, 6, 3, 2, 0)
+divorce <- c(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1)
+df<-data.frame (happiness, divorce)
+## F1t Logistic Regression Full Dataset
+model <- glm(divorce ~ happiness, data = df, family = "binomial")
+##Predict and Evaluate Mode1
+df$prob_divorce <- predict (model, type="response")
+df$pred_divorce <- ifelse(df$prob_divorce >= 0.5, 1, 0)
+## confusion matrix
+conM <- table(df$pred_divorce, df$divorce,
+             dnn = c("Predicted", "Actual"))
+## Model Evaluation
+
+.libPaths()
+1ibrary(titanic)
+head (titanic_train
+## DROP NA (missing values)
+titanic train<- na.omit (titanic_train)
+nrow (titanic_train)
+## SPLIT DATA
+set.seed (42)
+n<- nrow (titanic_train)
+id - sample (1:n, size=n*0.7) ## 70% train 30% test
+train_data <- titanic_train [id,test_data <- titanictrain [-id,
+                                                              ## Trian Model
+                                                              gTm(Survived class + Age, data = train_data, family=
+                                                                    "binomial ")
+                                                              ## Test Mode1
+                                                              ## Accuracy
+library(tidyverse)
+
+str(mtcars)
+
+# install.packages(
+#   c("tidyverse", "patchwork", "lubridate")
+# )
+
+library(tidyverse)
+library(patchwork)
+library(lubridate)
+
+d <- "2022-10-01"
+
+d <- as.Date(d)
+
+## convert different formats into date
+"29 May, 2022"
+"2022, May 29"
+"29-05-2022"
+dmy("29-05-2022")
+
+
+d <- c("29 May, 2022", 
+       "09 Sep, 1988",
+       "15 Aug, 2021")
+
+## create dataframe
+df <- tribble(
+  ~id, ~date,
+  1, "2022/09/09",
+  2, "2021/05/31",
+  3, "2020/08/25"
+)
+
+df %>%
+  mutate(date = ymd(date),
+         day = day(date),
+         month = month(date, label=T),
+         year =year(date),
+         wday = wday(date, label=T))
+
+## ggplot => 2D grammar of graphic
+## date mapping geom
+
+## histogram + density
+ggplot(data = mtcars, 
+       mapping = aes(x = mpg)) +
+  geom_histogram(bins=10)
+
+ggplot(data = mtcars, 
+       mapping = aes(x = mpg)) +
+  geom_density()
+
+base <- ggplot(data = mtcars, 
+               mapping = aes(x = mpg))
+
+## simplified version
+ggplot(mtcars, 
+       aes(mpg)) +
+  geom_histogram(bins=10)
+
+## boxplot
+ggplot(mtcars, aes(mpg)) +
+  geom_boxplot()
+
+mtcars %>%
+  summarise(
+    min_mpg = min(mpg),
+    max_mpg = max(mpg),
+    q1 = quantile(mpg, 0.25),
+    q2 = quantile(mpg, 0.5),
+    q3 = quantile(mpg, 0.75)
+  )
+
+## 15 October 9am - 4.30pm
+
+## one variable, discret/ factor
+m <- mtcars %>%
+  tibble() %>%
+  mutate(am = factor(if_else(am==0, "Auto", "Manual")))
+
+## qualitative data
+m %>%
+  count(am) %>%
+  mutate(pct = n/sum(n))
+
+ggplot(m, aes(am)) +
+  geom_bar()
+
+### EDA => Exploratory Data Analysis
+### Numerical vs. Visual
+
+## Two variables
+## Scatter Plot
+
+ggplot(m, aes(wt, mpg)) +
+  geom_point()
+
+ggplot(m, aes(wt, mpg)) +
+  geom_smooth(method = "lm")
+
+## change setting in ggplot
+ggplot(m, aes(wt, mpg)) +
+  geom_point(color = "red", 
+             size  = 5,
+             alpha = 0.8,
+             shape = "+") +
+  geom_smooth(method = "lm", 
+              color="black", 
+              fill="red", se=F)
+
+## setting vs. mapping 
+ggplot(m, aes(wt, mpg)) +
+  geom_point(size= 6, 
+             alpha=0.5, 
+             mapping = aes(color = hp))
+
+m <- m %>%
+  mutate(cyl = factor(cyl))
+
+ggplot(m, aes(wt, mpg)) +
+  geom_point(size= 6, 
+             alpha=0.5, 
+             mapping = aes(color = cyl))
+
+## prep data
+m %>%
+  select(wt, mpg, hp) %>%
+  mutate(hp_segment = case_when(
+    hp < 100 ~ "low",
+    hp < 200 ~ "medium",
+    TRUE ~ "high"
+  )) %>% 
+  mutate(hp_segment = factor(
+    hp_segment,
+    labels = c("low", "medium", "high"),
+    levels = c("low", "medium", "high"),
+    ordered = TRUE) ) %>%
+  ggplot(mapping = aes(wt, mpg, 
+                       color=hp_segment)) +
+  geom_point(size=4, alpha=0.8) +
+  scale_color_manual(values = c("red",
+                                "gold",
+                                "blue"))
+
+## BREAK 10 minutes
+## See you at 10:49am
+
+ggplot(m, aes(x=am, y=mpg)) +
+  geom_boxplot()
+
+ggplot(m, aes(x=am, y=mpg)) +
+  geom_violin() +
+  geom_jitter(width=0.05)
+
+ggplot(m, aes(x=am, y=mpg)) +
+  geom_jitter(height = 0.05)
+
+## diamonds exploration
+ggplot(diamonds, aes(cut, 
+                     fill=color)) +
+  geom_bar() +
+  theme_minimal()
+
+set.seed(42)
+ggplot(sample_n(diamonds, 1000), 
+       aes(carat, price, color=cut)) +
+  geom_point(alpha=0.5) +
+  geom_smooth(method="lm", se=F) +
+  theme_minimal() +
+  facet_wrap(~ cut, ncol=5)
+
+## facet grid
+
+set.seed(25)
+diamonds %>%
+  sample_n(10000) %>%
+  ggplot( aes(carat, price)) +
+  geom_point(alpha=0.4) +
+  geom_smooth() +
+  theme_minimal() +
+  facet_grid(cut ~ color)
+
+## color
+ggplot(diamonds, aes(price)) +
+  geom_histogram(fill="#146ae3",
+                 bins=100) +
+  theme_minimal()
+
+set.seed(42)
+ggplot(sample_n(diamonds, 1000), aes(carat, price, color=cut)) +
+  geom_point() +
+  theme_minimal() +
+  scale_color_brewer(type = "qual", palette = 3)
+
+## available themes that can be used for free
+# install.packages("ggthemes")
+library(ggthemes)
+library(tidyverse)
+
+ggplot(sample_n(diamonds, 1000), aes(carat, price, color=cut)) +
+  geom_point() +
+  theme_economist() 
+
+p1 <- ggplot(mtcars, aes(hp)) + geom_histogram(bins=10)
+p2 <- ggplot(mtcars, aes(mpg)) + geom_density()
+p3 <- ggplot(diamonds, aes(cut, fill=cut)) + geom_bar()
+
+library(patchwork)
+
+( p1 + p2 ) / p3
+
+p1 / (p2 + p3)
+
+
+## ggplot shortcut ของดี
+## qplot()
+
+ggplot(mtcars, aes(wt, hp)) +
+  geom_point()
+
+qplot(wt, hp, data=mtcars)
+qplot(hp, data=mtcars, bins=10)
+qplot(hp, data=mtcars, geom="density")
+qplot(mpg, data=mtcars, geom="boxplot")
+qplot(factor(am), mpg, data=mtcars, geom="boxplot")
+
+qplot(wt, hp, data=mtcars) +
+  qplot(wt, hp, data=mtcars, geom="smooth")
+
+# comment
+# R is a calculator
+1+1
+2*2
+5/2
+6-4
+8**2
+
+# variables
+income <- 48000
+saving <- .25 * income
+print(saving)
+
+preferred_bank <- "KBANK"
+
+# remove variables
+rm(preferred_bank)
+
+# data types
+# 1. numeric
+# 2. character
+# 3. logical TRUE/FALSE
+# 4. factor == categorical
+# 5. date
+
+
+# a customer
+cust_name <- "Lisa"
+cust_age <- 25
+cust_city <- "Seoul"
+cust_movie_lover <- TRUE
+cust_dob <- as.Date("1997-03-27")
+
+
+gender <- c("Male", "Female", "Female")
+
+factor(temp, levels=c(1,2,3),
+       labels = c("low", "med", "high"),
+       ordered = TRUE)
+
+cust_gender <- "Female"
+
+# data structures
+# 1. vector OK
+# 2. matrix
+# 3. list
+# 4. dataframe OK
+
+1:10
+5:15
+rep("hello", 5)
+x <- seq(1, 100, by=5)
+
+# vector can store a single
+# data type
+
+friends <- c("Lisa", 
+             "Jisoo",
+             "Jenny",
+             "Rose",
+             "Bibi")
+
+ages <- c(24, 22, 25, 26, 28)
+
+movie_lover <- c(TRUE, FALSE, T, T, F)
+
+# create a dataframe from vectors
+blackpink <- data.frame(friends, ages, movie_lover)
+
+View(blackpink)
+
+# matrix
+m1 <- 1:10
+matrix(m1, ncol=2, 
+       byrow=TRUE)
+
+m2 <- 1:15
+
+dim(m2) <- c(3,5)
+m2
+
+# list
+# multiple data types
+
+customer <- list(
+  name = "Lisa",
+  band = "BlackPink",
+  age  = 24,
+  movieLover = TRUE,
+  albums = c("Kill This Love",
+             "Money",
+             "Pink Venom"),
+  favMovies = list(
+    uk = "Dark Knight",
+    th = "Pee Mak"
+  )
+)
+
+# print customer keys
+names(customer)
+
+# functions + control flow
+
+
+f_double <- function(x) x*2 
+f_cube <- function(x) x**3
+
+# function has input {name}
+
+greeting <- function(name="Lisa") {
+  text <- paste("Hello", name)
+  print(text)
+}
+
+greeting_v2 <- function() {
+  user_name <- readline("What's your name? ")
+  text <- paste("Hello!", user_name)
+  print(text)
+}
+
+# function check username, password
+# login to our web application
+# authentication (check username + password)
+
+f_auth <- function() {
+  # welcome message
+  print("Welcome to our application.")
+  
+  attemps <- 0
+  
+  while (attemps < 3) {
+    # get username password from user
+    un <- readline("Username: ")
+    pw <- readline("Password: ")
+    attemps <- attemps + 1
+    
+    # check authentication
+    if (un == "toyeiei" & pw == "1234") {
+      print("Successfully login.")
+      break
+    } else {
+      if (attemps == 3) {
+        print("Your account is locked.")
+      } else {
+        print("Please try again...")
+      }
+    }
+  }
+}
+
+# while example
+count <- 0
+
+while (count < 10) {
+  if (count %% 2 == 1) {
+    print(paste(count, "Odd"))
+  } else {
+    print(paste(count, "Even"))
+  }
+  count <- count + 1
+}
+
+# for loop
+# vectorization
+
+nums <- 1:10
+
+for (num in nums) {
+  print(num * 2)
+}
+
+nums * 2
+
+# say Hi to each of our friends
+friends <- c("Jenny", "Lisa", "Jisoo", "Rose")
+
+for (friend in friends) {
+  print( paste("Hi", friend)  )
+}
+
+# apply family
+
+
+
+
+
