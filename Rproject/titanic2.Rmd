@@ -1,0 +1,138 @@
+---
+title: "Titanic model"
+author: "pontagorn"
+output:
+  pdf_document: default
+  word_document: default
+---
+
+## install library
+
+```{r}
+library(titanic)
+library(dplyr)
+library(tidyverse)
+library(patchwork)
+
+```
+
+## Data Set
+
+```{r}
+glimpse(titanic_train)
+
+```
+## Check NA
+There is NA value in Age.We must get rid of it.
+
+
+```{r}
+apply(titanic_train, MARGIN=2, function(col) sum(is.na(col)))
+```
+
+
+## Drop NA
+
+```{r}
+titanic_train <- na.omit(titanic_train)
+```
+
+
+```{r}
+ggplot(data = titanic_train,
+      mapping = aes(x = Age))+
+  geom_histogram()
+
+```
+
+
+
+
+## Split Data
+
+```{r}
+set.seed(42)
+n <- nrow(titanic_train)
+id <- sample(1:n, size= n*0.7)
+train_data <- titanic_train[id, ]
+test_data <- titanic_train[-id, ]
+```
+
+## Create model
+
+```{r}
+model <- glm(Survived ~ Pclass + Age + Sex + SibSp, data = train_data, family = "binomial")
+summary(model)
+```
+
+## Train Data
+
+```{r}
+train_prob_su <- predict(model,type = "response")
+train_data$pred_su <- ifelse(train_prob_su >= 0.5,1,0)
+##Confuionmetric
+conM <- table(train_data$pred_su, train_data$Survived,
+dnn = c("Predicted","Actuall"))
+##Model evaluation
+train_a <- (conM[1,1] + conM[2,2])/ sum(conM)
+train_p <- conM[2,2] / (conM[2,2] + conM[2,1])
+train_r <- conM[2,2]/(conM[1,2]+conM[2,2])
+cat("Acculacy:",train_a,"\nPrecision:",train_p,"\nRecall",train_r)
+```
+
+#Train F1
+
+```{r}
+Train_f1 <- 2*((train_p*train_r)/(train_p+train_r))
+cat("\nTrain F1 :", Train_f1)
+```
+
+## Test Data
+
+```{r}
+test_prob_su <- predict(model, newdata = test_data, type = "response")
+test_data$pred_su <- ifelse(test_prob_su >= 0.5,1,0)
+##Confuionmetric
+conM1 <- table(test_data$pred_su, test_data$Survived,
+dnn = c("Predicted","Actuall"))
+##Model evaluation
+test_a <- (conM1[1,1] + conM1[2,2])/ sum(conM1)
+test_p <- conM1[2,2] / (conM1[2,2] + conM1[2,1])
+test_r <- conM1[2,2]/(conM1[1,2]+conM1[2,2])
+cat("Acculacy:",test_a,"\nPrecision:",test_p,"\nRecall",test_r)
+```
+
+## Test F1
+
+```{r}
+Test_f1 <- 2*((test_p*test_r)/(test_p+test_r))
+cat("\nTest F1 :", Test_f1)
+```
+
+## Plot model
+
+```{r}
+sum_model <- data.frame(
+Type = c('Train', 'Test'),
+Accuracy = c(train_a, test_a),
+Precision = c(train_p, test_p),
+Recall = c(train_r, test_r),
+F1_Score = c(Train_f1, Test_f1))
+# Turn to data for plot
+final <- sum_model %>%
+pivot_longer(-Type ,
+names_to = "me_type",
+values_to = "percent")
+```
+
+## Plot data
+You can see that our model is overfitting because the accuracy in Train is higher than test.
+```{r}
+ggplot(final,aes(me_type, percent, fill = Type)) +
+geom_bar(stat='identity', position = 'dodge') +
+coord_cartesian(ylim = c(0.65, 0.85)) +
+theme_minimal() +
+labs(title = "Train & Test Model Evaluation",
+x ="Model Evaluation", y="Percentage",
+caption = "Source: titanic from titanic package")
+```

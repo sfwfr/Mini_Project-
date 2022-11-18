@@ -1,0 +1,108 @@
+---
+title: "Analyse diamonds data with ggplot"
+output:
+  html_notebook: default
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+
+```{r}
+library(dplyr)
+library(tidyverse)
+library(patchwork)
+library(RColorBrewer)
+```
+
+## Data Information
+
+```{r}
+glimpse(diamonds)
+
+```
+
+## plot cut vs color
+
+```{r}
+ggplot(diamonds, aes(cut, 
+                     fill=color)) +
+  geom_bar(position = "dodge")
+
+```
+
+## Relationship between price and color of diamonds with boxplot
+
+```{r}
+ggplot(diamonds, aes(price, color)) +
+geom_boxplot() +
+labs(
+title = "Relationship between price and color of diamonds",
+x = "price",
+y = "color",
+subtitle = "Using ggplot to create this visualization",
+caption = "Source: ggplot package"
+) +
+stat_summary(color = "#993404")+
+stat_summary(
+fun.min = function(x) mean(x) - sd(x)
+,fun.max = function(x) mean(x) + sd(x)
+,geom = "errorbar"
+,color = "#993404"
+,width = 0.5
+) +
+theme_minimal()
+```
+
+We find that color j has the highest average price and the color j diamonds have the largest interquartile range and they have a median of around 4700, which is the highest. On the other hand, the color j diamonds have the lowest median, which is a have a median of around 3000
+
+## The relationship between table and the average price of diamonds separated, by cut
+
+```{r}
+df %>% group_by(table, cut) %>%
+ summarise(avg_p = mean(price)) %>%
+ ggplot(aes(table, avg_p, group = cut, color = cut)) +
+ geom_point()+
+ geom_line()+
+ theme_dark()+
+ facet_wrap(~ cut, ncol = 4)+
+ labs(title = "The relationship between table and the average price of diamonds separated, by cut ",
+  x = "Table",
+  y = "Average price(USD)",
+  caption = "Source: Diamonds from ggplots2 package")+
+ scale_color_brewer(type = "seq", palette = "Blues")
+
+```
+
+It can be noted that at the Good and Premium trades, there will be a lower price fluctuation than the rest. Another thing to notice is that the size of the table doesn't affect the price.
+
+## Graph 2. The relationship between clarity and the average price of diamonds seperated by cut.
+
+```{r}
+df %>% group_by(clarity, cut) %>%
+  summarise(avg_p = mean(price)) %>%
+  ggplot(aes(clarity,avg_p, group = cut, color = cut))+
+  geom_point()+
+  geom_line()+
+  theme_minimal()+
+    labs(title = "The relationship between clarity and the average price of diamonds seperated by cut",
+      x = "clarity",
+      y = "Average price (USD)",
+      caption = "Source: Diamonds from ggplots2 package")+
+  scale_color_brewer(type = "seq", palette = "PuBu")
+
+```
+
+From the graph we can see that clarity with si2 has the highest average price and clarity with VVS1 has the lowest average price.
+
+## Sample plots of carat vs price and trend line group by color
+
+```{r}
+df %>%
+ggplot(aes(carat, price, color=color)) +
+
+geom_smooth(method="lm", se=F)+
+theme_minimal()+
+scale_color_brewer(type="qual",palette = "Set2")
+```
+
+From the graph where carat is equal to 3, the colors that get the average price from high to low can be g , e , i, h, j.
